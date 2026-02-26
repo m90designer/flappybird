@@ -1,70 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird</title>
 
-    <!-- PLAY.FUN SDK -->
-    <meta name="x-ogp-key" content="your-api-key" />
-    <script src="https://sdk.play.fun"></script>
+<meta name="x-ogp-key" content="your-api-key" />
+<script src="https://sdk.play.fun"></script>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #87CEEB;
-        }
-        #game-container {
-            position: relative;
-            width: 400px;
-            height: 600px;
-            margin: 0 auto;
-            background-color: #FFFFFF;
-            overflow: hidden;
-        }
-        #bird {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background-color: #FF5733;
-        }
-        .pipe {
-            position: absolute;
-            width: 60px;
-            background-color: #00FF00;
-            outline: none;
-        }
-    </style>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #87CEEB;
+    display: flex;
+    justify-content: center;
+}
+#game-container {
+    position: relative;
+    width: 400px;
+    height: 600px;
+    background-color: #FFFFFF;
+    overflow: hidden;
+}
+#bird {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background-color: #FF5733;
+}
+.pipe {
+    position: absolute;
+    width: 60px;
+    background-color: #00FF00;
+}
+#game-over {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    text-align: center;
+    font-size: 32px;
+    font-weight: bold;
+    color: red;
+    display: none;
+}
+#resetBtn {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    font-size: 18px;
+    display: none;
+    cursor: pointer;
+}
+</style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="bird"></div>
-    <div class="pipe" style="height: 200px; top: 0; left: 200px;"></div>
-    <div class="pipe" style="height: 300px; top: 400px; left: 300px;"></div>
+    <div class="pipe" style="height:200px; top:0; left:200px;"></div>
+    <div class="pipe" style="height:300px; top:400px; left:300px;"></div>
+
+    <div id="game-over">GAME OVER</div>
+    <button id="resetBtn">RESET</button>
 </div>
 
 <script>
-/* ==============================
-   PLAY.FUN SDK INIT
-================================= */
+/* ========= SDK ========= */
 let sdk;
-
 window.addEventListener("load", () => {
     sdk = new OpenGameSDK({ ui: { usePointsWidget: true } });
-
     sdk.init({ gameId: 'your-game-id' }).then(() => {
-        console.log('SDK ready');
+        console.log("SDK ready");
     });
 });
 
-
-/* ==============================
-   GAME CODE
-================================= */
+/* ========= GAME ========= */
 
 const bird = document.getElementById("bird");
+const gameOverText = document.getElementById("game-over");
+const resetBtn = document.getElementById("resetBtn");
+
 let birdTop = 250;
 let birdLeft = 50;
 let gravity = 2;
@@ -76,22 +94,22 @@ function jump(e) {
         birdTop -= 50;
     }
 }
-
 document.addEventListener("keydown", jump);
 
 function gameLoop() {
-    if (!isGameOver) {
-        birdTop += gravity;
-        bird.style.top = birdTop + "px";
-    }
+    if (isGameOver) return;
+
+    birdTop += gravity;
+    bird.style.top = birdTop + "px";
 
     if (birdTop <= 0 || birdTop >= 560) {
-        gameOver();
+        endGame();
     }
 
     const pipes = document.querySelectorAll(".pipe");
     pipes.forEach(pipe => {
         const pipeLeft = parseInt(pipe.style.left);
+
         if (pipeLeft > -60) {
             pipe.style.left = pipeLeft - gameSpeed + "px";
 
@@ -101,34 +119,37 @@ function gameLoop() {
                 birdTop + 40 > parseInt(pipe.style.top) &&
                 birdTop < parseInt(pipe.style.top) + parseInt(pipe.style.height)
             ) {
-                gameOver();
+                endGame();
             }
+
         } else {
             pipe.style.left = "400px";
         }
     });
 
-    if (!isGameOver) {
-        requestAnimationFrame(gameLoop);
-    }
+    requestAnimationFrame(gameLoop);
 }
 
-function gameOver() {
+function endGame() {
     isGameOver = true;
+    gameOverText.style.display = "block";
+    resetBtn.style.display = "block";
+}
 
-    // Gửi điểm lên play.fun nếu cần
-    if (sdk) {
-        console.log("Game Over - SDK active");
-    }
+resetBtn.addEventListener("click", resetGame);
 
-    alert("Game Over! Click OK to restart.");
+function resetGame() {
     birdTop = 250;
-    isGameOver = false;
+    bird.style.top = birdTop + "px";
 
     const pipes = document.querySelectorAll(".pipe");
     pipes.forEach(pipe => {
         pipe.style.left = "400px";
     });
+
+    isGameOver = false;
+    gameOverText.style.display = "none";
+    resetBtn.style.display = "none";
 
     gameLoop();
 }
