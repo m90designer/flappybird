@@ -1,201 +1,139 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="x-ogp-key" content="YOUR_API_KEY_HERE" />
-<title>Flappy Bird - PlayFun</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird</title>
 
-<style>
-body { margin:0; overflow:hidden; background:#70c5ce; }
-canvas { display:block; margin:auto; background:#70c5ce; }
+    <!-- PLAY.FUN SDK -->
+    <meta name="x-ogp-key" content="your-api-key" />
+    <script src="https://sdk.play.fun"></script>
 
-#resetBtn{
-position:absolute;
-top:20px;
-right:20px;
-padding:10px 20px;
-font-size:16px;
-background:#ffcc00;
-border:none;
-border-radius:6px;
-}
-</style>
-
-<script src="https://sdk.play.fun"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #87CEEB;
+        }
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            margin: 0 auto;
+            background-color: #FFFFFF;
+            overflow: hidden;
+        }
+        #bird {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #FF5733;
+        }
+        .pipe {
+            position: absolute;
+            width: 60px;
+            background-color: #00FF00;
+            outline: none;
+        }
+    </style>
 </head>
-
 <body>
 
-<canvas id="gameCanvas" width="400" height="600"></canvas>
-<button id="resetBtn">RESET</button>
+<div id="game-container">
+    <div id="bird"></div>
+    <div class="pipe" style="height: 200px; top: 0; left: 200px;"></div>
+    <div class="pipe" style="height: 300px; top: 400px; left: 300px;"></div>
+</div>
 
 <script>
-/* ========= SDK INIT ========= */
-let sdk = new OpenGameSDK({ ui:{ usePointsWidget:true }});
-let sdkReady = false;
+/* ==============================
+   PLAY.FUN SDK INIT
+================================= */
+let sdk;
 
-sdk.init({ gameId:"YOUR_GAME_ID_HERE"}).then(()=>{
-    sdkReady = true;
+window.addEventListener("load", () => {
+    sdk = new OpenGameSDK({ ui: { usePointsWidget: true } });
+
+    sdk.init({ gameId: 'your-game-id' }).then(() => {
+        console.log('SDK ready');
+    });
 });
 
-/* ========= SETUP ========= */
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const resetBtn = document.getElementById("resetBtn");
 
-let gameOver = false;
-let score = 0;
+/* ==============================
+   GAME CODE
+================================= */
 
-/* ========= SOUND ========= */
-const flapSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const bird = document.getElementById("bird");
+let birdTop = 250;
+let birdLeft = 50;
+let gravity = 2;
+let gameSpeed = 2;
+let isGameOver = false;
 
-/* ========= BIRD ========= */
-let bird = {
-x:80,
-y:300,
-width:34,
-height:24,
-velocity:0,
-gravity:0.5,
-lift:-8,
-frame:0
-};
-
-/* ========= PIPES ========= */
-let pipes=[];
-let pipeGap=150;
-let pipeWidth=60;
-
-function createPipe(){
-let topHeight=Math.random()*250+50;
-pipes.push({
-x:400,
-top:topHeight,
-bottom:600-topHeight-pipeGap
-});
+function jump(e) {
+    if (e.code === "Space" && !isGameOver) {
+        birdTop -= 50;
+    }
 }
 
-setInterval(()=>{
-if(!gameOver) createPipe();
-},1500);
+document.addEventListener("keydown", jump);
 
-/* ========= DRAW FUNCTIONS ========= */
-function drawBackground(){
-ctx.fillStyle="#70c5ce";
-ctx.fillRect(0,0,400,600);
+function gameLoop() {
+    if (!isGameOver) {
+        birdTop += gravity;
+        bird.style.top = birdTop + "px";
+    }
 
-ctx.fillStyle="#ded895";
-ctx.fillRect(0,550,400,50);
+    if (birdTop <= 0 || birdTop >= 560) {
+        gameOver();
+    }
+
+    const pipes = document.querySelectorAll(".pipe");
+    pipes.forEach(pipe => {
+        const pipeLeft = parseInt(pipe.style.left);
+        if (pipeLeft > -60) {
+            pipe.style.left = pipeLeft - gameSpeed + "px";
+
+            if (
+                birdLeft + 40 > pipeLeft &&
+                birdLeft < pipeLeft + 60 &&
+                birdTop + 40 > parseInt(pipe.style.top) &&
+                birdTop < parseInt(pipe.style.top) + parseInt(pipe.style.height)
+            ) {
+                gameOver();
+            }
+        } else {
+            pipe.style.left = "400px";
+        }
+    });
+
+    if (!isGameOver) {
+        requestAnimationFrame(gameLoop);
+    }
 }
 
-function drawBird(){
-ctx.save();
-ctx.translate(bird.x+bird.width/2,bird.y+bird.height/2);
-ctx.rotate(bird.velocity*0.05);
+function gameOver() {
+    isGameOver = true;
 
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.ellipse(0,0,18,12,0,0,Math.PI*2);
-ctx.fill();
+    // Gửi điểm lên play.fun nếu cần
+    if (sdk) {
+        console.log("Game Over - SDK active");
+    }
 
-ctx.fillStyle="white";
-ctx.beginPath();
-ctx.arc(8,-4,4,0,Math.PI*2);
-ctx.fill();
+    alert("Game Over! Click OK to restart.");
+    birdTop = 250;
+    isGameOver = false;
 
-ctx.restore();
+    const pipes = document.querySelectorAll(".pipe");
+    pipes.forEach(pipe => {
+        pipe.style.left = "400px";
+    });
+
+    gameLoop();
 }
 
-function drawPipes(){
-ctx.fillStyle="green";
-pipes.forEach(pipe=>{
-ctx.fillRect(pipe.x,0,pipeWidth,pipe.top);
-ctx.fillRect(pipe.x,600-pipe.bottom,pipeWidth,pipe.bottom);
-});
-}
-
-/* ========= UPDATE ========= */
-function update(){
-if(gameOver) return;
-
-bird.velocity+=bird.gravity;
-bird.y+=bird.velocity;
-
-pipes.forEach(pipe=>{
-pipe.x-=2;
-
-if(pipe.x+pipeWidth===bird.x){
-score++;
-if(sdkReady) sdk.addPoints(1);
-}
-
-if(
-bird.x<pipe.x+pipeWidth &&
-bird.x+bird.width>pipe.x &&
-(bird.y<pipe.top || bird.y+bird.height>600-pipe.bottom)
-){
-endGame();
-}
-});
-
-if(bird.y+bird.height>550 || bird.y<0){
-endGame();
-}
-}
-
-/* ========= DRAW ========= */
-function draw(){
-ctx.clearRect(0,0,400,600);
-drawBackground();
-drawPipes();
-drawBird();
-
-ctx.fillStyle="white";
-ctx.font="28px Arial";
-ctx.fillText("Score: "+score,20,50);
-
-if(gameOver){
-ctx.font="40px Arial";
-ctx.fillText("GAME OVER",70,300);
-}
-}
-
-/* ========= LOOP ========= */
-function loop(){
-update();
-draw();
-requestAnimationFrame(loop);
-}
-loop();
-
-/* ========= CONTROLS ========= */
-function flap(){
-if(gameOver) return;
-bird.velocity=bird.lift;
-flapSound.play();
-}
-
-function endGame(){
-gameOver=true;
-hitSound.play();
-if(sdkReady) sdk.endGame();
-}
-
-function resetGame(){
-bird.y=300;
-bird.velocity=0;
-pipes=[];
-score=0;
-gameOver=false;
-}
-
-document.addEventListener("keydown",e=>{
-if(e.code==="Space") flap();
-});
-
-canvas.addEventListener("click",flap);
-resetBtn.addEventListener("click",resetGame);
+gameLoop();
 </script>
 
 </body>
