@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <!-- Play.fun SDK Meta Tag - REPLACE 'your-api-key' WITH YOUR REAL API KEY -->
     <meta name="x-ogp-key" content="your-api-key" />
-    <title>Retro Flappy Bird - Play.fun Edition</title>
+    <title>Retro Flappy Bird - Ultra Fast 900</title>
     <!-- Play.fun SDK Script -->
     <script src="https://sdk.play.fun"></script>
     <style>
@@ -82,21 +82,16 @@
 
         try {
             sdk = new OpenGameSDK({ ui: { usePointsWidget: true } });
-            
-            // NOTE: 'gameId' must be a valid UUID.
             sdk.init({ gameId: '00000000-0000-0000-0000-000000000000' }) 
                 .then(() => {
-                    console.log('SDK ready');
                     sdkReady = true;
                     finalizeLoading();
                 })
                 .catch(err => {
-                    console.warn('SDK init failed:', err);
                     sdkReady = false;
                     finalizeLoading();
                 });
         } catch (e) {
-            console.error('SDK constructor error:', e);
             finalizeLoading();
         }
 
@@ -115,17 +110,21 @@
         const highscoreTable = document.getElementById('highscoreTable');
         const highscoreList = document.getElementById('highscoreList');
 
-        // Game Constants
-        const GRAVITY = 0.15;        
-        const FLAP_SPEED = -3.8;     
-        const PIPE_SPEED = 1.5;      
-        const PIPE_SPAWN_RATE = 160; 
-        const PIPE_GAP = 170;        
+        /** * Game Constants 
+         * Đã tăng GRAVITY lên 900 và điều chỉnh FLAP_SPEED tương ứng
+         */
+        const GRAVITY = 900;         // Tốc độ chim rơi cực nhanh theo yêu cầu
+        const FLAP_SPEED = -310;     // Tăng lực nhảy để chim có thể bật lên kịp thời
+        const PIPE_SPEED = 300;      
+        const PIPE_SPAWN_INTERVAL = 0.9; 
+        const PIPE_GAP = 190;        
         const BIRD_X = 50;
 
         // Game State
-        let bird, pipes, clouds, score, frameCount, gameState = 'LOADING';
+        let bird, pipes, clouds, score, gameState = 'LOADING';
         let highscores = JSON.parse(localStorage.getItem('flappyHighscores')) || [];
+        let lastTime = 0;
+        let spawnTimer = 0;
 
         function updateBestLabel() {
             const topScore = highscores.length > 0 ? highscores[0] : 0;
@@ -152,7 +151,7 @@
             ];
             
             score = 0;
-            frameCount = 0;
+            spawnTimer = 0;
             
             if (gameState !== 'LOADING') {
                 gameState = 'START';
@@ -171,25 +170,21 @@
             ctx.translate(BIRD_X + bird.width / 2, bird.y + bird.height / 2);
             ctx.rotate(bird.rotation);
             
-            // Bird body
             ctx.fillStyle = '#f8e71c';
             ctx.fillRect(-bird.width/2, -bird.height/2, bird.width, bird.height);
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
             ctx.strokeRect(-bird.width/2, -bird.height/2, bird.width, bird.height);
             
-            // Eye
             ctx.fillStyle = '#fff';
             ctx.fillRect(8, -8, 10, 10);
             ctx.fillStyle = '#000';
             ctx.fillRect(14, -6, 4, 4);
             
-            // Wing
             ctx.fillStyle = '#fff';
             ctx.fillRect(-12, 0, 14, 10);
             ctx.strokeRect(-12, 0, 14, 10);
             
-            // Beak
             ctx.fillStyle = '#f5a623';
             ctx.fillRect(10, 4, 14, 10);
             ctx.strokeRect(10, 4, 14, 10);
@@ -202,13 +197,11 @@
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 3;
 
-            // Top pipe
             ctx.fillRect(p.x, 0, 60, p.top);
             ctx.strokeRect(p.x, 0, 60, p.top);
             ctx.fillRect(p.x - 5, p.top - 20, 70, 20);
             ctx.strokeRect(p.x - 5, p.top - 20, 70, 20);
 
-            // Bottom pipe
             const bottomY = p.top + PIPE_GAP;
             ctx.fillRect(p.x, bottomY, 60, canvas.height - bottomY);
             ctx.strokeRect(p.x, bottomY, 60, canvas.height - bottomY);
@@ -224,25 +217,28 @@
             ctx.fillRect(c.x + 10, c.y - 10, w - 20, 10);
         }
 
-        function update() {
+        function update(dt) {
             if (gameState === 'PLAYING') {
-                bird.velocity += GRAVITY;
-                bird.y += bird.velocity;
+                bird.velocity += GRAVITY * dt;
+                bird.y += bird.velocity * dt;
                 
-                bird.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 6, bird.velocity * 0.15));
+                // Hiệu ứng xoay nhanh hơn phù hợp với trọng lực lớn
+                bird.rotation = Math.min(Math.PI / 2, Math.max(-Math.PI / 4, bird.velocity * 0.0035));
 
                 clouds.forEach(c => {
-                    c.x -= 0.3;
+                    c.x -= 80 * dt; 
                     if (c.x < -100) c.x = canvas.width + 50;
                 });
                 
-                if (frameCount % PIPE_SPAWN_RATE === 0) {
+                spawnTimer += dt;
+                if (spawnTimer >= PIPE_SPAWN_INTERVAL) {
                     const top = Math.random() * (canvas.height - PIPE_GAP - 200) + 100;
                     pipes.push({ x: canvas.width, top: top, passed: false });
+                    spawnTimer = 0;
                 }
 
-                pipes.forEach((p, index) => {
-                    p.x -= PIPE_SPEED;
+                pipes.forEach((p) => {
+                    p.x -= PIPE_SPEED * dt;
 
                     if (BIRD_X + bird.width > p.x && BIRD_X < p.x + 60) {
                         if (bird.y < p.top || bird.y + bird.height > p.top + PIPE_GAP) {
@@ -262,26 +258,20 @@
                 if (bird.y + bird.height > canvas.height || bird.y < 0) {
                     gameOver();
                 }
-
-                frameCount++;
             }
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             clouds.forEach(drawCloud);
             pipes.forEach(drawPipe);
             drawBird();
-
-            // Ground
             ctx.fillStyle = '#ded895';
             ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
         }
 
         function flap() {
             if (gameState === 'LOADING') return;
-
             if (gameState === 'START') {
                 gameState = 'PLAYING';
                 messageLabel.style.display = 'none';
@@ -295,22 +285,17 @@
 
         function gameOver() {
             gameState = 'GAMEOVER';
-            
             highscores.push(score);
             highscores.sort((a, b) => b - a);
             highscores = highscores.slice(0, 5); 
             localStorage.setItem('flappyHighscores', JSON.stringify(highscores));
 
-            // Sync score with SDK
             if (sdkReady && sdk && typeof sdk.setScore === 'function') {
-                sdk.setScore({ score: score }).then(() => {
-                    console.log('Score synced with Play.fun');
-                }).catch(err => console.warn('Failed to sync score:', err));
+                sdk.setScore({ score: score }).catch(err => console.warn(err));
             }
 
             messageLabel.style.display = 'block';
             messageLabel.innerText = 'GAME OVER\nCLICK TO RESTART';
-            
             displayHighscores();
             highscoreTable.style.display = 'block';
         }
@@ -324,7 +309,6 @@
             });
         }
 
-        // Event listeners
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'KeyW') {
                 flap();
@@ -342,15 +326,20 @@
             e.preventDefault();
         });
 
-        function gameLoop() {
-            update();
+        function gameLoop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.0125); 
+            lastTime = timestamp;
+
+            update(dt);
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // Start game
         init();
-        gameLoop();
+        requestAnimationFrame((timestamp) => {
+            lastTime = timestamp;
+            gameLoop(timestamp);
+        });
     </script>
 </body>
 </html>
